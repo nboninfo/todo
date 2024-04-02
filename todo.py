@@ -3,6 +3,38 @@ from flet import *
 from datetime import datetime
 import sqlite3
 
+#BaseDatos
+class Database:
+    def ConnectToDatabase():
+        try:
+            db = sqlite3.connect('todo.db')
+            c = db.cursor()
+            c.execute('CREATE TABLE if not exists tasks (id INTERGE PRIMARY KEY, Task VARCHAR(255) NOT NULL, Date VARCHAR(255) NOT NULL)')
+            return db
+        except Exception as e:
+            print(e)
+
+    def ReadDatabase(db):
+        c = db.cursor()
+        c.execute('SELECT Task, Date FROM tasks')
+        records = c.fetchall()
+        return records
+    
+    def InsertDatabase(db, values):
+        c = db.cursor()
+        c.execute('INSERT INTO tasks(Task, Date) VALUES (?,?)', values)
+        db.commit()
+
+    def DeleteDatabase(db, value):
+        c = db.cursor()
+        c.execute('DELETE FROM tasks WHERE Task=?', value)
+        db.commit()
+
+    def UpdateDatabase(db, value):
+        c = db.cursor()
+        c.execute('UPDATE tasks SET Task=? WHERE Task=?', value)
+        db.commit()
+
 
 class FormContainer(UserControl):
     def __init__(self, func):
@@ -121,6 +153,13 @@ def main (page: Page):
 
     def AddTaskToScreen(e):
         dateTime=datetime.now().strftime('%b - %d, %Y  %H:%M')
+
+        db = Database.ConnectToDatabase()
+        Database.InsertDatabase(db, (form.content.controls[0].value, dateTime))
+        db.close()
+
+
+
         if form.content.controls[0].value:
             _main_column_.controls.append(
                 CreateTask(
@@ -133,8 +172,13 @@ def main (page: Page):
             _main_column_.update(),
  
             CreateToDoTask(e)
+        else:
+            db.close()
     
     def DeleteFuntion(e):
+        db = Database.ConnectToDatabase()
+        Database.DeleteDatabase(db, (e.controls[0].content.controls[0].controls[0].value,))
+        db.close()
         _main_column_.controls.remove(e)
         _main_column_.update()
 
@@ -152,6 +196,14 @@ def main (page: Page):
         form.update()
 
     def FinalizeUpdate(e):
+       db = Database.ConnectToDatabase()
+       Database.UpdateDatabase(
+            db,
+            (
+                form.content.controls[0].value,
+                e.controls[0].content.controls[0].controls[0].value,
+            )
+       )
        e.controls[0].content.controls[0].controls[0].value = form.content.controls[0].value,
        e.controls[0].content.update(),
        CreateToDoTask(e),
@@ -220,6 +272,18 @@ def main (page: Page):
     page.update()
 
     form=page.controls[0].content.controls[0].content.controls[1].controls[0]
+
+    db = Database.ConnectToDatabase()
+    for task in Database.ReadDatabase(db)[::-1]:
+        _main_column_.controls.append(
+            CreateTask(
+                task[0],
+                task[1],
+                DeleteFuntion,
+                UpdateFuntion,
+            )
+        )
+        _main_column_.update()
 
 if  __name__=='__main__':
     flet.app(target=main)
